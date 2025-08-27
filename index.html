@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>First Impressions – Party Card Game</title>
+  <style>
+    :root{
+      --bg:#0b0f14;
+      --card:#121824;
+      --ink:#e6f0ff;
+      --muted:#9bb0cc;
+      --accent:#58a6ff;
+      --accent-2:#7ee787;
+      --danger:#ff7b72;
+      --warn:#ffd080;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius:22px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1200px 800px at 20% 0%, #0e1521 0, #0b0f14 70%); color:var(--ink);
+      display:flex; flex-direction:column; gap:16px; padding:18px; 
+    }
+    header{
+      display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    }
+    h1{font-size: clamp(20px, 3vw, 28px); margin:0; letter-spacing:.3px}
+    .tag{padding:.25rem .6rem; border-radius:999px; background:#101826; color:var(--muted); border:1px solid #1e2a3b; font-size:.85rem}
+    .row{display:flex; gap:12px; align-items:center; flex-wrap:wrap}
+    .spacer{flex:1}
+
+    .surface{background:var(--card); border:1px solid #1e2a3b; border-radius:var(--radius); box-shadow:var(--shadow)}
+    .controls{padding:12px; display:grid; gap:10px; grid-template-columns: 1fr;}
+    .controls .row{justify-content:flex-start}
+
+    .toggle-group{display:inline-grid; grid-auto-flow:column; gap:6px; background:#0f1724; padding:6px; border-radius:999px; border:1px solid #1e2a3b}
+    .toggle-group button{background:transparent; color:var(--muted); padding:.45rem .85rem; border-radius:999px; border:none; cursor:pointer;}
+    .toggle-group button[aria-pressed="true"]{background:var(--accent); color:#001428; font-weight:600}
+
+    button{background:#142136; color:var(--ink); border:1px solid #27344a; border-radius:12px; padding:.7rem 1rem; cursor:pointer; font-weight:600}
+    button.primary{background:linear-gradient(180deg, #2b72ff, #1652ff); border-color:#1652ff}
+    button.good{background:linear-gradient(180deg, #36c276, #1b9d5a); border-color:#1b9d5a}
+    button.warn{background:linear-gradient(180deg, #ffb84d, #ff9900); border-color:#ff9900}
+    button.ghost{background:transparent}
+    button.danger{background:linear-gradient(180deg, #ff7b72, #f24d3d); border-color:#f24d3d}
+    button:disabled{opacity:.5; cursor:not-allowed}
+
+    .layout{display:grid; grid-template-columns: 1.1fr .9fr; gap:16px;}
+    @media (max-width: 980px){
+      .layout{grid-template-columns: 1fr;}
+    }
+
+    .table{width:100%; border-collapse:collapse}
+    .table th,.table td{padding:8px 10px; border-bottom:1px solid #203049; text-align:left}
+    .table th{color:var(--muted); font-weight:600}
+
+    /* Card stage */
+    .stage{ padding:16px; display:grid; gap:14px; grid-template-rows:auto 1fr auto; }
+    .cards{ display:grid; grid-template-columns: 1fr 1fr; gap:14px; align-items:stretch; }
+    @media (max-width:780px){ .cards{grid-template-columns: 1fr;} }
+
+    .card{
+      background:linear-gradient(180deg,#151e2e,#0f1624); border:1px solid #24334c; border-radius:24px; box-shadow: var(--shadow);
+      padding:18px; display:flex; flex-direction:column; justify-content:center; align-items:center; min-height:180px;
+      position:relative; overflow:hidden;
+    }
+    .card h3{margin:0 0 10px; font-size:.95rem; color:var(--muted); letter-spacing:.4px}
+    .card .text{font-size: clamp(22px, 2.4vw, 36px); text-align:center; line-height:1.2; font-weight:800}
+
+    .sub{color:var(--muted); font-size:.9rem}
+    .pill{display:inline-flex; align-items:center; gap:8px; padding:.4rem .7rem; border-radius:999px; border:1px solid #25344d; background:#0f1724}
+
+    /* Timer */
+    .timer{display:flex; gap:10px; align-items:center}
+    .timer .clock{font-variant-numeric:tabular-nums; font-weight:800; font-size: clamp(24px, 4vw, 48px)}
+    .timer .ring{width:28px; height:28px; border-radius:999px; border:3px solid var(--accent); position:relative}
+    .timer .ring.low{border-color:var(--warn)}
+    .timer .ring.critical{border-color:var(--danger)}
+
+    /* Scoreboard */
+    .scoreboard{ padding:16px; display:grid; gap:12px; }
+    .team{display:grid; grid-template-columns: 1fr auto auto; gap:10px; align-items:center; padding:8px 10px; border-radius:12px; background:#0f1724; border:1px solid #203049}
+    .team input{background:transparent; border:none; color:var(--ink); font-weight:700; font-size:1rem; outline:none}
+    .score{font-weight:800; font-size:1.3rem; padding:.2rem .6rem; border-radius:10px; background:#142136}
+
+    /* History */
+    .history{padding:12px; display:grid; gap:8px}
+    .history .item{display:flex; gap:8px; align-items:center; border:1px solid #203049; background:#0f1724; padding:8px 10px; border-radius:12px}
+    .history .tag{font-weight:700}
+
+    /* Footer */
+    footer{color:var(--muted); font-size:.85rem; text-align:center; padding:8px}
+    a{color:var(--accent)}
+
+    /* Editor modal */
+    dialog{border:none; border-radius:16px; padding:0; background:#0f1724; color:var(--ink); width:min(900px, 92vw)}
+    dialog .modal{padding:16px; display:grid; gap:12px}
+    dialog::backdrop{background:rgba(0,0,0,.45)}
+    textarea{width:100%; min-height:220px; resize:vertical; background:#0c1320; color:var(--ink); border:1px solid #26354e; border-radius:12px; padding:10px}
+    .grid2{display:grid; grid-template-columns: 1fr 1fr; gap:12px}
+    @media (max-width:700px){ .grid2{grid-template-columns:1fr} }
+
+  </style>
+</head>
+<body>
+  <header>
+    <h1>First Impressions — Browser Party Game</h1>
+    <span class="tag">Two decks • Unlimited laughs • No repeats</span>
+    <div class="spacer"></div>
+    <button id="openEditor" class="ghost">📝 Edit Cards</button>
+  </header>
+
+  <div class="layout">
+    <!-- LEFT: Stage & Controls -->
+    <section class="surface stage" aria-live="polite">
+      <div class="row" style="justify-content:space-between">
+        <div class="toggle-group" role="group" aria-label="Mode">
+          <button id="modeDraw" aria-pressed="true">Just Draw</button>
+          <button id="modeTeams" aria-pressed="false">Team Mode</button>
+        </div>
+        <div class="row">
+          <div class="pill" title="Cards left until reshuffle"><strong id="leftA">–</strong>&nbsp;characters · <strong id="leftB">–</strong>&nbsp;scenarios</div>
+        </div>
+      </div>
+
+      <div class="cards" id="cards">
+        <article class="card" aria-live="polite">
+          <h3>Character</h3>
+          <div class="text" id="charText">—</div>
+        </article>
+        <article class="card" aria-live="polite">
+          <h3>Scenario</h3>
+          <div class="text" id="scenText">—</div>
+        </article>
+      </div>
+
+      <div class="row" id="drawControls">
+        <button class="primary" id="drawOne">Draw a Pair ⤵</button>
+        <button id="noRepeat" class="ghost" aria-pressed="true" title="Avoid repeating items until deck runs out">No repeats: ON</button>
+      </div>
+
+      <div class="row" id="teamControls" style="display:none; justify-content:space-between; align-items:center">
+        <div class="timer">
+          <div class="ring" id="ring"></div>
+          <div class="clock" id="clock">01:00</div>
+          <span class="sub">per turn</span>
+        </div>
+        <div class="row">
+          <button id="startRound" class="primary">Start Round ▶</button>
+          <button id="pauseRound">Pause ⏸</button>
+          <button id="restartRound" class="ghost">Restart Timer ⟳</button>
+          <button id="endRound" class="danger">End Turn ⏭</button>
+        </div>
+      </div>
+
+      <div class="row" id="inTurn" style="display:none; gap:10px">
+        <button id="guessed" class="good">Guessed ✅ (+1)</button>
+        <button id="pass" class="warn">Pass ↻</button>
+        <span class="sub" id="passesLeft" aria-live="polite"></span>
+      </div>
+
+      <div class="history surface" style="display:none" id="historyBox">
+        <div class="sub">Last draws</div>
+        <div id="history"></div>
+      </div>
+    </section>
+
+    <!-- RIGHT: Scoreboard & Settings -->
+    <aside class="surface scoreboard">
+      <div class="row" style="justify-content:space-between; align-items:center">
+        <div class="sub">Teams & Settings</div>
+        <div class="row">
+          <button id="addTeam">＋ Add Team</button>
+          <button id="resetScores" class="ghost">Reset Scores</button>
+        </div>
+      </div>
+
+      <div id="teams"></div>
+
+      <div class="surface" style="padding:12px">
+        <table class="table">
+          <tbody>
+            <tr>
+              <th>Turn length</th>
+              <td>
+                <input id="seconds" type="range" min="20" max="120" step="5" value="60" />
+                <span class="pill"><span id="secondsLabel">60</span>s</span>
+              </td>
+            </tr>
+            <tr>
+              <th>Passes per turn</th>
+              <td>
+                <input id="passes" type="range" min="0" max="10" step="1" value="3" />
+                <span class="pill" id="passesLabel">3</span>
+              </td>
+            </tr>
+            <tr>
+              <th>Sound</th>
+              <td>
+                <label><input id="soundToggle" type="checkbox" checked> Beep last 5s</label>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="surface" style="padding:12px">
+        <div class="sub">How to play</div>
+        <ol>
+          <li>Pick <em>Just Draw</em> to generate fun combos, or switch to <em>Team Mode</em> for timed rounds.</li>
+          <li>In Team Mode: pick a team, press <strong>Start Round</strong>, then act out as many draws as you can. Tap <strong>Guessed</strong> for a point, or <strong>Pass</strong> to skip.</li>
+          <li>When time runs out, it auto-switches to the next team. Highest score wins.</li>
+        </ol>
+      </div>
+    </aside>
+  </div>
+
+  <footer>
+    Fan-made browser version inspired by a two-deck impressions party game. Not affiliated with any brand. Edit or replace cards via the editor.
+  </footer>
+
+  <!-- Editor Modal -->
+  <dialog id="editor">
+    <form method="dialog" class="modal">
+      <div class="row" style="justify-content:space-between">
+        <h3 style="margin:0">Card Editor</h3>
+        <button value="close">✕ Close</button>
+      </div>
+      <div class="grid2">
+        <div>
+          <div class="row" style="justify-content:space-between"><strong>Characters</strong> <span class="sub" id="charCount">0</span></div>
+          <textarea id="charInput" aria-label="Characters (one per line)"></textarea>
+        </div>
+        <div>
+          <div class="row" style="justify-content:space-between"><strong>Scenarios</strong> <span class="sub" id="scenCount">0</span></div>
+          <textarea id="scenInput" aria-label="Scenarios (one per line)"></textarea>
+        </div>
+      </div>
+      <div class="row" style="justify-content:space-between">
+        <div class="row">
+          <button id="restoreDefaults" type="button">Restore defaults</button>
+          <button id="clearAll" type="button">Clear</button>
+        </div>
+        <div class="row">
+          <button id="exportJSON" type="button">Export JSON</button>
+          <input type="file" id="importFile" accept="application/json" style="display:none" />
+          <button id="importJSON" type="button">Import JSON</button>
+          <button id="saveCards" class="primary" type="button">Save</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+    // ======== Data (100 + 100) ========
+    var DEFAULT_CHARACTERS = [
+      "James Bond","Kermit the Frog","Donald Trump","Barack Obama","Morgan Freeman","David Attenborough","Gollum","Gandalf","Harry Potter","Hermione Granger",
+      "Ron Weasley","Darth Vader","Yoda","Luke Skywalker","Princess Leia","Obi-Wan Kenobi","Chewbacca","C-3PO","R2-D2","Kylo Ren",
+      "Rey","Han Solo","Indiana Jones","Jack Sparrow","Captain Barbossa","Davy Jones","Batman","Joker","Harley Quinn","Superman",
+      "Wonder Woman","Flash","Aquaman","Spider-Man","Iron Man","Captain America","Thor","Hulk","Black Widow","Doctor Strange",
+      "Wolverine","Deadpool","Professor X","Magneto","Shrek","Donkey","Fiona","Lord Farquaad","Buzz Lightyear","Woody",
+      "Elsa","Olaf","Moana","Maui","Simba","Mufasa","Scar","Zazu","Nala","Timon",
+      "Pumbaa","SpongeBob SquarePants","Patrick Star","Squidward Tentacles","Mr. Krabs","Plankton","Homer Simpson","Marge Simpson","Bart Simpson","Lisa Simpson",
+      "Mickey Mouse","Goofy","Donald Duck","Daisy Duck","Scooby-Doo","Shaggy Rogers","Velma Dinkley","Fred Jones","Daphne Blake","Optimus Prime",
+      "Megatron","Yennefer","Geralt of Rivia","Ciri","Dumbledore","Severus Snape","Voldemort","Hagrid","Minions (one of them)","Gru",
+      "Sherlock Holmes","Dr. Watson","Dracula","Frankenstein's Monster","The Terminator","RoboCop","John Wick","Rocky Balboa","Rambo","Tony Soprano"
+    ];
+
+    var DEFAULT_SCENARIOS = [
+      "reading a bedtime story to a child","ordering at a drive-thru","hosting a cooking show","giving a weather forecast","announcing lottery results","on a Zoom call with bad internet",
+      "stuck in traffic talking to yourself","arguing with a barista about oat milk","apologizing for being late","calling tech support","teaching a yoga class","being a flight attendant during turbulence",
+      "auctioning an old sock","commentating a football match","narrating a nature documentary","delivering a graduation speech","giving wedding vows","singing karaoke badly","doing stand-up comedy",
+      "teaching kindergarten","lost in IKEA asking for directions","camping and telling a ghost story","ordering a complicated coffee","interviewing an alien","being an AI assistant going rogue",
+      "hosting a game show","doing an unboxing video","filming an ASMR tutorial","announcing a space launch","reporting live from a hurricane","pitching a startup to investors","asking for a raise",
+      "first date small talk","playing charades and failing","teaching grandma to use a smartphone","complaining to customer service","meeting your partner's parents","reading the news dramatically",
+      "asking a neighbor to keep it down","at airport security with too many liquids","leading a meditation session","tour guide for a haunted house","receiving an award you don't deserve",
+      "reading a scary story with the lights on","ordering sushi for the first time","giving a pep talk to a cat","babysitting triplets","camp counselor during a food fight","running for the bus and missing it",
+      "shopping TV presenter selling a bizarre gadget","podcast host with a sleepy guest","giving driving directions without a map","waking up after a nap on live TV","defusing a (fake) bomb with instructions",
+      "explaining blockchain at a family dinner","barber talking nonstop while cutting","bingo caller with flair","DJ hyping a quiet crowd","announcing lost property at a supermarket",
+      "teacher catching students cheating","clown at a children's party","magician whose trick goes wrong","weatherman predicting ridiculous weather","sports coach at halftime losing badly","therapist who's too honest",
+      "politician dodging a question","lawyer giving a dramatic objection","pirate recruiting a crew","robot learning emotions","time traveler lost in 2025","detective interrogating a goldfish",
+      "astronaut reporting from Mars","vampire trying not to bite","werewolf on a full moon Zoom","ghost haunting politely","superhero stuck in a revolving door","villain revealing their evil plan",
+      "secret agent activating gadgets","cowboy entering a fancy restaurant","chef yelling in a calm voice","nurse giving silly advice","doctor delivering great news dramatically","pharmacist explaining side effects quickly",
+      "pilot making a very long announcement","museum guide bored of dinosaurs","mail carrier dodging dogs","barista mishearing every order","referee explaining a controversial call","wedding planner fixing a disaster",
+      "news reporter interviewing a mime","astronomer naming a new star","librarian shushing too enthusiastically","zookeeper naming every penguin","meteorologist correcting yesterday's mistake",
+      "parent teaching a teen to drive","tourist haggling at a market","waiter reciting specials forever","security guard describing a UFO sighting","gardener talking to plants","conspiracy theorist connecting everything"
+    ];
+
+    // ======== Utilities ========
+    var $ = function(s){ return document.querySelector(s); };
+    var $$ = function(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); };
+    var fmt = function(s){ s = s.toString(); return (s.length<2? '0'+s : s); };
+
+    // Simple beep using WebAudio
+    var audioCtx;
+    function beep(){
+      if(!$('#soundToggle').checked) return;
+      try{
+        audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+        var o = audioCtx.createOscillator();
+        var g = audioCtx.createGain();
+        o.type = 'square'; o.frequency.value = 880; g.gain.value = 0.05;
+        o.connect(g).connect(audioCtx.destination); o.start(); setTimeout(function(){ o.stop(); }, 100);
+      }catch(e){}
+    }
+
+    // Deck helper
+    function Deck(items){ this._base = items.slice(); this.reset(); }
+    Deck.prototype.reset = function(){
+      this.order = [];
+      for(var i=0;i<this._base.length;i++){ this.order.push(i); }
+      for(var j=this.order.length-1;j>0;j--){ var k=Math.floor(Math.random()*(j+1)); var tmp=this.order[j]; this.order[j]=this.order[k]; this.order[k]=tmp; }
+      this.idx = 0;
+    };
+    Deck.prototype.draw = function(noRepeat){
+      if(noRepeat===false){ var i=Math.floor(Math.random()*this._base.length); return { value:this._base[i], left:'∞' }; }
+      if(this.idx>=this.order.length){ this.reset(); }
+      var value = this._base[this.order[this.idx++]];
+      return { value:value, left: this.order.length - this.idx };
+    };
+    Deck.prototype.set = function(items){ this._base = items.slice(); this.reset(); };
+    Deck.prototype.left = function(){ return this.order.length - this.idx; };
+    Deck.prototype.size = function(){ return this._base.length; };
+    Deck.prototype.items = function(){ return this._base.slice(); };
+
+    // ======== State ========
+    var storage = {
+      get: function(key, fallback){ try{ var v = localStorage.getItem(key); return v? JSON.parse(v) : fallback; } catch(e){ return fallback; } },
+      set: function(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
+    };
+
+    var decks = {
+      chars: new Deck(storage.get('fi_chars', DEFAULT_CHARACTERS)),
+      scens: new Deck(storage.get('fi_scens', DEFAULT_SCENARIOS))
+    };
+
+    var teams = storage.get('fi_teams', [ {name:'Team A', score:0}, {name:'Team B', score:0} ]);
+    var currentTeam = 0;
+
+    var settings = storage.get('fi_settings', { seconds:60, passes:3, sound:true, noRepeat:true });
+    var timer = { t:null, left: settings.seconds, active:false, passes: settings.passes };
+
+    // ======== UI sync helpers ========
+    function renderTeams(){
+      var wrap = $('#teams'); wrap.innerHTML='';
+      for(var i=0;i<teams.length;i++){
+        var team = teams[i];
+        var div = document.createElement('div');
+        div.className = 'team';
+        div.style.outline = (i===currentTeam)? '2px solid var(--accent)' : 'none';
+
+        var input = document.createElement('input'); input.setAttribute('aria-label','Team name'); input.value = team.name; input.dataset.idx = i;
+        var score = document.createElement('span'); score.className='score'; score.setAttribute('aria-live','polite'); score.textContent = team.score;
+        var row = document.createElement('div'); row.className='row';
+        var minus = document.createElement('button'); minus.textContent='−'; minus.dataset.act='minus'; minus.dataset.idx=i;
+        var plus = document.createElement('button'); plus.textContent='＋'; plus.dataset.act='plus'; plus.dataset.idx=i;
+        row.appendChild(minus); row.appendChild(plus);
+        if(teams.length>1){ var del=document.createElement('button'); del.className='ghost'; del.textContent='🗑'; del.dataset.act='del'; del.dataset.idx=i; row.appendChild(del); }
+
+        div.appendChild(input); div.appendChild(score); div.appendChild(row);
+        wrap.appendChild(div);
+      }
+      storage.set('fi_teams', teams);
+    }
+
+    function updateDeckLeft(){ $('#leftA').textContent = decks.chars.left(); $('#leftB').textContent = decks.scens.left(); }
+    function setCards(a,b){ $('#charText').textContent = a || '—'; $('#scenText').textContent = b || '—'; }
+
+    function setMode(teamMode){
+      $('#modeDraw').setAttribute('aria-pressed', String(!teamMode));
+      $('#modeTeams').setAttribute('aria-pressed', String(teamMode));
+      $('#drawControls').style.display = teamMode ? 'none':'flex';
+      $('#teamControls').style.display = teamMode ? 'flex':'none';
+      $('#inTurn').style.display = 'none';
+      $('#historyBox').style.display = teamMode ? 'block':'none';
+    }
+
+    function syncSettings(){
+      $('#seconds').value = settings.seconds; $('#secondsLabel').textContent = settings.seconds;
+      $('#passes').value = settings.passes; $('#passesLabel').textContent = settings.passes;
+      $('#soundToggle').checked = !!settings.sound;
+      $('#noRepeat').setAttribute('aria-pressed', String(!!settings.noRepeat));
+      $('#noRepeat').textContent = 'No repeats: ' + (settings.noRepeat ? 'ON':'OFF');
+      updateClock(settings.seconds);
+    }
+
+    function updateClock(s){
+      $('#clock').textContent = fmt(Math.floor(s/60)) + ':' + fmt(s%60);
+      var ring = $('#ring'); ring.classList.remove('low'); ring.classList.remove('critical');
+      if(s<=10) ring.classList.add('critical'); else if(s<=20) ring.classList.add('low');
+    }
+
+    function addHistory(a,b){
+      var row = document.createElement('div'); row.className='item';
+      var tag = document.createElement('span'); tag.className='tag'; tag.textContent = (teams[currentTeam] ? teams[currentTeam].name : '—');
+      var strongA = document.createElement('strong'); strongA.textContent = a;
+      var times = document.createElement('span'); times.className='sub'; times.textContent = '×';
+      var strongB = document.createElement('strong'); strongB.textContent = b;
+      row.appendChild(tag); row.appendChild(document.createTextNode(' ')); row.appendChild(strongA); row.appendChild(document.createTextNode(' ')); row.appendChild(times); row.appendChild(document.createTextNode(' ')); row.appendChild(strongB);
+      $('#history').prepend(row);
+      var kids = $$('#history .item');
+      while(kids.length>12){ kids.pop().remove(); }
+    }
+
+    // ======== Round flow ========
+    function drawPair(){
+      var A = decks.chars.draw(settings.noRepeat);
+      var B = decks.scens.draw(settings.noRepeat);
+      setCards(A.value, B.value); updateDeckLeft();
+      return [A.value, B.value];
+    }
+
+    function startRound(){
+      if(teams.length===0){ alert('Add at least one team first'); return; }
+      clearTimeout(timer.t);
+      timer.left = settings.seconds; timer.passes = settings.passes; timer.active = true;
+      $('#passesLeft').textContent = settings.passes===0 ? 'Passes: unlimited' : ('Passes left: ' + timer.passes);
+      $('#inTurn').style.display = 'flex';
+      $('#pauseRound').disabled = false; $('#endRound').disabled = false; $('#restartRound').disabled = false; $('#startRound').disabled = true;
+      $('#pauseRound').textContent = 'Pause ⏸';
+      var pair = drawPair(); addHistory(pair[0], pair[1]);
+      tick();
+    }
+
+    function tick(){
+      if(timer.active) $('#pauseRound').textContent = 'Pause ⏸';
+      updateClock(timer.left);
+      if(timer.left<=5 && timer.left>0) beep();
+      if(!timer.active) return;
+      if(timer.left<=0){ endRound(true); return; }
+      timer.t = setTimeout(function(){ timer.left--; tick(); }, 1000);
+    }
+
+    function pauseRound(){
+      if(timer.active){ timer.active=false; clearTimeout(timer.t); $('#pauseRound').textContent='Resume ▶'; }
+      else { timer.active=true; $('#pauseRound').textContent='Pause ⏸'; tick(); }
+    }
+
+    function endRound(autoAdvance){
+      clearTimeout(timer.t); timer.active=false;
+      $('#startRound').disabled=false; $('#pauseRound').disabled=true; $('#endRound').disabled=true; $('#restartRound').disabled=true; $('#inTurn').style.display='none';
+      $('#pauseRound').textContent='Pause ⏸';
+      if(autoAdvance){ currentTeam = (currentTeam + 1) % teams.length; renderTeams(); }
+    }
+
+    function restartTimer(){
+      clearTimeout(timer.t); timer.active=false; timer.left=settings.seconds; timer.passes=settings.passes;
+      updateClock(timer.left);
+      $('#inTurn').style.display='none';
+      $('#startRound').disabled=false; $('#pauseRound').disabled=true; $('#endRound').disabled=true; $('#restartRound').disabled=true;
+      $('#pauseRound').textContent='Pause ⏸'; setCards('—','—');
+    }
+
+    // ======== Events ========
+    $('#drawOne').addEventListener('click', function(){ var p=drawPair(); addHistory(p[0], p[1]); });
+    $('#noRepeat').addEventListener('click', function(){ settings.noRepeat=!settings.noRepeat; storage.set('fi_settings', settings); syncSettings(); });
+    $('#modeDraw').addEventListener('click', function(){ setMode(false); });
+    $('#modeTeams').addEventListener('click', function(){ setMode(true); });
+    $('#startRound').addEventListener('click', startRound);
+    $('#pauseRound').addEventListener('click', pauseRound);
+    $('#endRound').addEventListener('click', function(){ endRound(true); });
+    $('#restartRound').addEventListener('click', restartTimer);
+
+    $('#guessed').addEventListener('click', function(){ teams[currentTeam].score += 1; storage.set('fi_teams', teams); renderTeams(); var p=drawPair(); addHistory(p[0], p[1]); });
+    $('#pass').addEventListener('click', function(){ if(settings.passes===0){ var p=drawPair(); addHistory(p[0], p[1]); return; } if(timer.passes<=0) return; timer.passes--; $('#passesLeft').textContent = 'Passes left: ' + timer.passes; var q=drawPair(); addHistory(q[0], q[1]); });
+
+    $('#addTeam').addEventListener('click', function(){ teams.push({name:'Team '+String.fromCharCode(65+teams.length), score:0}); renderTeams(); });
+    $('#resetScores').addEventListener('click', function(){ for(var i=0;i<teams.length;i++){ teams[i].score=0; } storage.set('fi_teams', teams); renderTeams(); });
+    $('#teams').addEventListener('click', function(e){ var btn = e.target.closest('button'); if(!btn) return; var i=+btn.dataset.idx; var act=btn.dataset.act; if(act==='plus'){ teams[i].score++; } if(act==='minus'){ teams[i].score = Math.max(0, teams[i].score-1); } if(act==='del'){ teams.splice(i,1); if(currentTeam>=teams.length) currentTeam=0; } storage.set('fi_teams', teams); renderTeams(); });
+    $('#teams').addEventListener('input', function(e){ var input = e.target.closest('input'); if(!input) return; var i=+input.dataset.idx; teams[i].name = input.value; storage.set('fi_teams', teams); });
+
+    // Settings
+    $('#seconds').addEventListener('input', function(e){ settings.seconds = +e.target.value; storage.set('fi_settings', settings); syncSettings(); });
+    $('#passes').addEventListener('input', function(e){ settings.passes = +e.target.value; storage.set('fi_settings', settings); syncSettings(); });
+    $('#soundToggle').addEventListener('change', function(e){ settings.sound = e.target.checked; storage.set('fi_settings', settings); });
+
+    // Editor Modal logic
+    var editor = $('#editor');
+    var cIn = $('#charInput');
+    var sIn = $('#scenInput');
+    function openEditor(){
+      cIn.value = decks.chars.items().join('\n'); 
+      sIn.value = decks.scens.items().join('\n');
+      $('#charCount').textContent = decks.chars.size() + ' cards'; 
+      $('#scenCount').textContent = decks.scens.size() + ' cards';
+      editor.showModal();
+    }
+    function updateCounts(){
+      var cc = cIn.value.split('\n').filter(function(x){ return !!x.trim(); }).length;
+      var sc = sIn.value.split('\n').filter(function(x){ return !!x.trim(); }).length;
+      $('#charCount').textContent = cc + ' cards'; 
+      $('#scenCount').textContent = sc + ' cards';
+    }
+
+    $('#openEditor').addEventListener('click', openEditor);
+    cIn.addEventListener('input', updateCounts);
+    sIn.addEventListener('input', updateCounts);
+
+    $('#restoreDefaults').addEventListener('click', function(){ 
+      cIn.value = DEFAULT_CHARACTERS.join('\n'); 
+      sIn.value = DEFAULT_SCENARIOS.join('\n'); 
+      updateCounts(); 
+    });
+    $('#clearAll').addEventListener('click', function(){ cIn.value=''; sIn.value=''; updateCounts(); });
+
+    $('#saveCards').addEventListener('click', function(){
+      var chars = cIn.value.split('\n').map(function(s){ return s.trim(); }).filter(function(s){ return !!s; });
+      var scens = sIn.value.split('\n').map(function(s){ return s.trim(); }).filter(function(s){ return !!s; });
+      if(chars.length<1 || scens.length<1){ alert('Please include at least one card in each list.'); return; }
+      decks.chars.set(chars); decks.scens.set(scens);
+      storage.set('fi_chars', chars); storage.set('fi_scens', scens);
+      updateDeckLeft(); setCards('—','—'); editor.close();
+    });
+
+    $('#exportJSON').addEventListener('click', function(){
+      var data = { characters: decks.chars.items(), scenarios: decks.scens.items() };
+      var blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+      var url = URL.createObjectURL(blob); var a=document.createElement('a'); a.href=url; a.download='first-impressions-cards.json'; a.click(); URL.revokeObjectURL(url);
+    });
+
+    $('#importJSON').addEventListener('click', function(){ $('#importFile').click(); });
+    $('#importFile').addEventListener('change', function(e){
+      var file = e.target.files[0]; if(!file) return; var reader=new FileReader();
+      reader.onload = function(){ 
+        try{ 
+          var obj=JSON.parse(reader.result); 
+          if(Array.isArray(obj.characters) && Array.isArray(obj.scenarios)){ 
+            cIn.value = obj.characters.join('\n'); 
+            sIn.value = obj.scenarios.join('\n'); 
+            updateCounts(); 
+          } else { 
+            alert('Invalid file format. Expected { characters:[], scenarios:[] }'); 
+          } 
+        } catch(err){ 
+          alert('Could not parse JSON file.'); 
+        } 
+      };
+      reader.readAsText(file);
+    });
+
+    // ======== Init ========
+    renderTeams(); syncSettings(); updateDeckLeft(); setCards('—','—');
+    $('#pauseRound').disabled = true; $('#endRound').disabled = true; $('#restartRound').disabled = true;
+  </script>
+</body>
+</html>
